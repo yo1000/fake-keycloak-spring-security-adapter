@@ -16,6 +16,11 @@ Keycloak Spring Security Fake adapter
 /* KeycloakConfig.kt */
 @Configuration
 class FakeKeycloakWebSecurityConfiguration : FakeKeycloakWebSecurityConfigurerAdapter() {
+    companion object {
+        val TEST_USERNAME = "XXXX-XXXX-XXXX-XXXX"
+        val TEST_ROLES = arrayOf("ADMIN", "USER")
+    }
+
     override fun fakeToken(): KeycloakAuthenticationToken {
         TEST_ROLES.map {
             "ROLE_$it"
