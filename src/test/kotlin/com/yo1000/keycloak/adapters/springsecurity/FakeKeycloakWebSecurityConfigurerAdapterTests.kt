@@ -13,8 +13,8 @@ import org.keycloak.adapters.springsecurity.token.KeycloakAuthenticationToken
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers
@@ -36,6 +36,7 @@ import org.springframework.web.context.WebApplicationContext
  */
 @RunWith(SpringJUnit4ClassRunner::class)
 @SpringBootTest(webEnvironment= SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
 class FakeKeycloakWebSecurityConfigurerAdapterTests {
     companion object {
         val TEST_USERNAME = "XXXX-XXXX-XXXX-XXXX"
@@ -66,15 +67,12 @@ class FakeKeycloakWebSecurityConfigurerAdapterTests {
                         .jsonPath("name", Matchers.`is`(TEST_USERNAME)))
     }
 
+    fun main(args: Array<String>) {
+        SpringApplication.run(FakeApp::class.java, *args)
+    }
+
     @SpringBootApplication
     class FakeApp {
-        companion object {
-            @JvmStatic
-            fun main(args: Array<String>) {
-                SpringApplication.run(FakeApp::class.java, *args)
-            }
-        }
-
         @RestController
         @RequestMapping("/fake")
         class FakeController {
@@ -104,10 +102,9 @@ class FakeKeycloakWebSecurityConfigurerAdapterTests {
                 }
             }
 
-            override fun configure(httpSecurity: HttpSecurity) {
-                super.configure(httpSecurity)
-                httpSecurity
-                        .authorizeRequests()
+            override fun configure(http: HttpSecurity) {
+                super.configure(http)
+                http.authorizeRequests()
                         .antMatchers("/**").hasAnyRole(*TEST_ROLES)
                         .anyRequest().permitAll()
             }

@@ -13,10 +13,14 @@ import org.keycloak.adapters.springsecurity.token.KeycloakAuthenticationToken
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Bean
 import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.session.SessionRegistryImpl
+import org.springframework.security.web.authentication.logout.LogoutFilter
 import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter
+import org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter
 import javax.servlet.FilterChain
 import javax.servlet.ServletRequest
 import javax.servlet.ServletResponse
@@ -35,14 +39,21 @@ abstract class FakeKeycloakWebSecurityConfigurerAdapter : KeycloakWebSecurityCon
     lateinit var sessionAuthenticationStrategy: SessionAuthenticationStrategy
 
     @Bean
-    abstract fun fakeToken(): KeycloakAuthenticationToken
-
-    @Bean
     override fun sessionAuthenticationStrategy(): SessionAuthenticationStrategy {
         return RegisterSessionAuthenticationStrategy(SessionRegistryImpl())
     }
 
     @Bean
+    abstract fun fakeToken(): KeycloakAuthenticationToken
+
+    override fun keycloakAuthenticatedActionsRequestFilter(): KeycloakAuthenticatedActionsFilter {
+        return object : KeycloakAuthenticatedActionsFilter() {
+            override fun doFilter(request: ServletRequest?, response: ServletResponse?, chain: FilterChain?) {
+                chain?.doFilter(request, response)
+            }
+        }
+    }
+
     override fun keycloakAuthenticationProcessingFilter(): KeycloakAuthenticationProcessingFilter {
         return object : KeycloakAuthenticationProcessingFilter(authenticationManager()) {
             init {
@@ -64,7 +75,6 @@ abstract class FakeKeycloakWebSecurityConfigurerAdapter : KeycloakWebSecurityCon
         }
     }
 
-    @Bean
     override fun keycloakSecurityContextRequestFilter(): KeycloakSecurityContextRequestFilter {
         return object : KeycloakSecurityContextRequestFilter() {
             override fun doFilter(request: ServletRequest?, response: ServletResponse?, filterChain: FilterChain?) {
@@ -73,7 +83,6 @@ abstract class FakeKeycloakWebSecurityConfigurerAdapter : KeycloakWebSecurityCon
         }
     }
 
-    @Bean
     override fun keycloakPreAuthActionsFilter(): KeycloakPreAuthActionsFilter {
         return object : KeycloakPreAuthActionsFilter() {
             override fun doFilter(request: ServletRequest?, response: ServletResponse?, chain: FilterChain?) {
@@ -82,16 +91,6 @@ abstract class FakeKeycloakWebSecurityConfigurerAdapter : KeycloakWebSecurityCon
         }
     }
 
-    @Bean
-    override fun keycloakAuthenticatedActionsFilter(): KeycloakAuthenticatedActionsFilter {
-        return object : KeycloakAuthenticatedActionsFilter() {
-            override fun doFilter(request: ServletRequest?, response: ServletResponse?, chain: FilterChain?) {
-                chain?.doFilter(request, response)
-            }
-        }
-    }
-
-    @Bean
     override fun adapterDeploymentContext(): AdapterDeploymentContext {
         return AdapterDeploymentContext(object : KeycloakSpringBootConfigResolver() {
             override fun resolve(request: HttpFacade.Request?): KeycloakDeployment {
@@ -102,5 +101,24 @@ abstract class FakeKeycloakWebSecurityConfigurerAdapter : KeycloakWebSecurityCon
 
     override fun authenticationManager(): AuthenticationManager {
         return AuthenticationManager { it }
+    }
+
+    override fun configure(http: HttpSecurity) {
+        http
+                .csrf().requireCsrfProtectionMatcher(keycloakCsrfRequestMatcher())
+                .and()
+                .sessionManagement()
+                .sessionAuthenticationStrategy(sessionAuthenticationStrategy())
+                .and()
+                .addFilterBefore(keycloakPreAuthActionsFilter(), LogoutFilter::class.java)
+                .addFilterBefore(keycloakAuthenticationProcessingFilter(), BasicAuthenticationFilter::class.java)
+                .addFilterAfter(keycloakSecurityContextRequestFilter(), SecurityContextHolderAwareRequestFilter::class.java)
+                .addFilterAfter(keycloakAuthenticatedActionsRequestFilter(), SecurityContextHolderAwareRequestFilter::class.java)
+                .exceptionHandling().authenticationEntryPoint(authenticationEntryPoint())
+                .and()
+                .logout()
+                .addLogoutHandler(keycloakLogoutHandler())
+                .logoutUrl("/sso/logout").permitAll()
+                .logoutSuccessUrl("/")
     }
 }
