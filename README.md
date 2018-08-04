@@ -8,7 +8,7 @@ Keycloak Spring Security Fake adapter
 <dependency>
     <groupId>com.yo1000</groupId>
     <artifactId>fake-keycloak-spring-security-adapter</artifactId>
-    <version>1.0.0-keycloak-3.4</version>
+    <version>2.0.0-keycloak-4.2</version>
 </dependency>
 ```
 
